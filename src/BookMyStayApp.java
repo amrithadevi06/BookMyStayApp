@@ -3,8 +3,8 @@ import java.util.*;
 // ================= UC1 → Application Entry & Welcome Message =================
 /**
  * Book My Stay - Hotel Booking Management System
- * Version 3.1
- * Demonstrates UC1 → UC5 incrementally
+ * Version 3.2
+ * Demonstrates UC1 → UC6 incrementally
  */
 public class BookMyStayApp {
 
@@ -12,11 +12,11 @@ public class BookMyStayApp {
         System.out.println("=================================");
         System.out.println("Welcome to Book My Stay");
         System.out.println("Hotel Booking Management System");
-        System.out.println("Version 3.1");
+        System.out.println("Version 3.2");
         System.out.println("=================================");
         System.out.println("Application started successfully.\n");
 
-        // ================= UC2 → Basic Room Types & Static Availability =================
+        // ================= UC2 → Basic Room Types =================
         Room single = new SingleRoom(50.0);
         Room doubleR = new DoubleRoom(80.0);
         Room suite = new SuiteRoom(150.0);
@@ -29,11 +29,11 @@ public class BookMyStayApp {
         suite.displayDetails();
         System.out.println("Available: 2");
 
-        // ================= UC3 → Centralized Room Inventory Management =================
+        // ================= UC3 → Centralized Room Inventory =================
         RoomInventory inventory = new RoomInventory();
-        inventory.registerRoom("Single Room", 5);
-        inventory.registerRoom("Double Room", 3);
-        inventory.registerRoom("Suite Room", 2);
+        inventory.registerRoom(single.getName(), 5);
+        inventory.registerRoom(doubleR.getName(), 3);
+        inventory.registerRoom(suite.getName(), 2);
 
         System.out.println("\n--- Inventory State ---");
         inventory.displayInventory();
@@ -50,8 +50,6 @@ public class BookMyStayApp {
 
         // ================= UC5 → Booking Request (First-Come-First-Served) =================
         BookingRequestQueue bookingQueue = new BookingRequestQueue();
-
-        // Sample booking requests
         bookingQueue.addRequest(new Reservation("Alice", "Single Room"));
         bookingQueue.addRequest(new Reservation("Bob", "Double Room"));
         bookingQueue.addRequest(new Reservation("Charlie", "Suite Room"));
@@ -59,6 +57,11 @@ public class BookMyStayApp {
 
         System.out.println("\n--- Booking Request Queue ---");
         bookingQueue.displayQueue();
+
+        // ================= UC6 → Reservation Confirmation & Room Allocation =================
+        BookingService bookingService = new BookingService(inventory);
+        System.out.println("\n--- Reservation Confirmation & Room Allocation ---");
+        bookingService.processQueue(bookingQueue);
 
         System.out.println("\nApplication execution completed.");
     }
@@ -95,6 +98,14 @@ class RoomInventory {
     private Map<String, Integer> inventory = new HashMap<>();
     public void registerRoom(String roomName, int count) { inventory.put(roomName, count); }
     public int getAvailability(String roomName) { return inventory.getOrDefault(roomName, 0); }
+    public boolean allocateRoom(String roomName) {
+        int avail = getAvailability(roomName);
+        if (avail > 0) {
+            inventory.put(roomName, avail - 1);
+            return true;
+        }
+        return false;
+    }
     public void displayInventory() {
         for (Map.Entry<String, Integer> entry : inventory.entrySet()) {
             System.out.println(entry.getKey() + ": " + entry.getValue() + " rooms available");
@@ -110,15 +121,48 @@ class Reservation {
         this.guestName = guestName;
         this.roomType = roomType;
     }
+    public String getGuestName() { return guestName; }
+    public String getRoomType() { return roomType; }
     public String toString() { return guestName + " requested " + roomType; }
 }
 
 class BookingRequestQueue {
     private Queue<Reservation> queue = new LinkedList<>();
     public void addRequest(Reservation r) { queue.offer(r); }
+    public Reservation getNextRequest() { return queue.poll(); }
+    public boolean hasNext() { return !queue.isEmpty(); }
     public void displayQueue() {
         for (Reservation r : queue) {
             System.out.println(r);
+        }
+    }
+}
+
+// ================= UC6 → Reservation Confirmation & Allocation =================
+class BookingService {
+    private RoomInventory inventory;
+    private Map<String, Set<String>> allocatedRooms = new HashMap<>();
+    private int roomIdCounter = 1;
+
+    public BookingService(RoomInventory inventory) {
+        this.inventory = inventory;
+    }
+
+    public void processReservation(Reservation r) {
+        String type = r.getRoomType();
+        if (inventory.allocateRoom(type)) {
+            allocatedRooms.putIfAbsent(type, new HashSet<>());
+            String roomId = type.substring(0, 2).toUpperCase() + roomIdCounter++;
+            allocatedRooms.get(type).add(roomId);
+            System.out.println(r.getGuestName() + " confirmed: " + type + " | Room ID: " + roomId);
+        } else {
+            System.out.println(r.getGuestName() + ": " + type + " unavailable");
+        }
+    }
+
+    public void processQueue(BookingRequestQueue queue) {
+        while (queue.hasNext()) {
+            processReservation(queue.getNextRequest());
         }
     }
 }
