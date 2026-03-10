@@ -1,9 +1,10 @@
 /**
  * Book My Stay - Hotel Booking Management System
- * Version 2.1
+ * Version 3.1
  * Implements:
  *   UC1: Application Entry & Welcome Message
  *   UC2: Basic Room Types & Static Availability
+ *   UC3: Centralized Room Inventory Management
  */
 
 import java.util.*;
@@ -16,32 +17,31 @@ public class BookMyStayApp {
         System.out.println("=================================");
         System.out.println("Welcome to Book My Stay");
         System.out.println("Hotel Booking Management System");
-        System.out.println("Version 2.1");
+        System.out.println("Version 3.1");
         System.out.println("=================================");
         System.out.println("Application started successfully.");
 
-        // ===== UC2: Basic Room Types & Static Availability =====
-
-        // Initialize room objects
+        // ===== UC2: Room Objects =====
         Room single = new SingleRoom(50.0);
         Room doubleR = new DoubleRoom(80.0);
         Room suite = new SuiteRoom(150.0);
 
-        // Static availability
-        int singleAvailable = 5;
-        int doubleAvailable = 3;
-        int suiteAvailable = 2;
+        // ===== UC3: Centralized Inventory =====
+        RoomInventory inventory = new RoomInventory();
+        inventory.registerRoom(single.type, 5);
+        inventory.registerRoom(doubleR.type, 3);
+        inventory.registerRoom(suite.type, 2);
 
         // Display room details and availability
         System.out.println("\nRoom Details and Availability:");
         single.displayDetails();
-        System.out.println("Available: " + singleAvailable);
+        System.out.println("Available: " + inventory.getAvailability(single.type));
 
         doubleR.displayDetails();
-        System.out.println("Available: " + doubleAvailable);
+        System.out.println("Available: " + inventory.getAvailability(doubleR.type));
 
         suite.displayDetails();
-        System.out.println("Available: " + suiteAvailable);
+        System.out.println("Available: " + inventory.getAvailability(suite.type));
 
         System.out.println("\nApplication execution completed.");
     }
@@ -75,4 +75,30 @@ class DoubleRoom extends Room {
 class SuiteRoom extends Room {
     public SuiteRoom(double price) { super("Suite Room", 3, price); }
     public void displayDetails() { System.out.println(type + " | Beds: " + beds + " | Price: $" + price); }
+}
+
+// ===== UC3: Centralized Room Inventory Management =====
+class RoomInventory {
+    private HashMap<String, Integer> inventory;
+
+    public RoomInventory() {
+        inventory = new HashMap<>();
+    }
+
+    // Register a room type with its available count
+    public void registerRoom(String roomType, int count) {
+        inventory.put(roomType, count);
+    }
+
+    // Get current availability
+    public int getAvailability(String roomType) {
+        return inventory.getOrDefault(roomType, 0);
+    }
+
+    // Update availability (e.g., after a booking)
+    public void updateAvailability(String roomType, int newCount) {
+        if (inventory.containsKey(roomType)) {
+            inventory.put(roomType, newCount);
+        }
+    }
 }
