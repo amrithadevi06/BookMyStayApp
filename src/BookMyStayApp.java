@@ -1,11 +1,6 @@
 import java.util.*;
 
 // ================= UC1 → Application Entry & Welcome Message =================
-/**
- * Book My Stay - Hotel Booking Management System
- * Version 3.2
- * Demonstrates UC1 → UC6 incrementally
- */
 public class BookMyStayApp {
 
     public static void main(String[] args) {
@@ -21,47 +16,45 @@ public class BookMyStayApp {
         Room doubleR = new DoubleRoom(80.0);
         Room suite = new SuiteRoom(150.0);
 
-        System.out.println("Room Details and Availability:");
-        single.displayDetails();
-        System.out.println("Available: 5");
-        doubleR.displayDetails();
-        System.out.println("Available: 3");
-        suite.displayDetails();
-        System.out.println("Available: 2");
-
-        // ================= UC3 → Centralized Room Inventory =================
+        // ================= UC3 → Inventory =================
         RoomInventory inventory = new RoomInventory();
         inventory.registerRoom(single.getName(), 5);
         inventory.registerRoom(doubleR.getName(), 3);
         inventory.registerRoom(suite.getName(), 2);
 
-        System.out.println("\n--- Inventory State ---");
-        inventory.displayInventory();
-
-        // ================= UC4 → Room Search & Availability Check =================
-        System.out.println("\n--- Room Search (Available Only) ---");
-        for (Room room : Arrays.asList(single, doubleR, suite)) {
-            int available = inventory.getAvailability(room.getName());
-            if (available > 0) {
-                room.displayDetails();
-                System.out.println("Available: " + available);
-            }
-        }
-
-        // ================= UC5 → Booking Request (First-Come-First-Served) =================
+        // ================= UC5 → Booking Queue =================
         BookingRequestQueue bookingQueue = new BookingRequestQueue();
-        bookingQueue.addRequest(new Reservation("Alice", "Single Room"));
-        bookingQueue.addRequest(new Reservation("Bob", "Double Room"));
-        bookingQueue.addRequest(new Reservation("Charlie", "Suite Room"));
-        bookingQueue.addRequest(new Reservation("Diana", "Single Room"));
 
-        System.out.println("\n--- Booking Request Queue ---");
-        bookingQueue.displayQueue();
+        Reservation r1 = new Reservation("Alice", "Single Room");
+        Reservation r2 = new Reservation("Bob", "Double Room");
+        Reservation r3 = new Reservation("Charlie", "Suite Room");
 
-        // ================= UC6 → Reservation Confirmation & Room Allocation =================
+        bookingQueue.addRequest(r1);
+        bookingQueue.addRequest(r2);
+        bookingQueue.addRequest(r3);
+
+        // ================= UC6 → Booking Service =================
         BookingService bookingService = new BookingService(inventory);
-        System.out.println("\n--- Reservation Confirmation & Room Allocation ---");
+
+        System.out.println("\n--- Reservation Confirmation ---");
         bookingService.processQueue(bookingQueue);
+
+        // ================= UC7 → Add-On Service =================
+        AddOnServiceManager serviceManager = new AddOnServiceManager();
+
+        AddOnService wifi = new AddOnService("WiFi", 10);
+        AddOnService breakfast = new AddOnService("Breakfast", 20);
+        AddOnService spa = new AddOnService("Spa", 50);
+
+        System.out.println("\n--- Add-On Services ---");
+
+        serviceManager.addService(r1.getReservationId(), wifi);
+        serviceManager.addService(r1.getReservationId(), breakfast);
+
+        serviceManager.addService(r2.getReservationId(), spa);
+
+        serviceManager.displayServices(r1.getReservationId());
+        serviceManager.displayServices(r2.getReservationId());
 
         System.out.println("\nApplication execution completed.");
     }
@@ -77,23 +70,23 @@ abstract class Room {
 
 class SingleRoom extends Room {
     public SingleRoom(double price) { super(price); }
-    public void displayDetails() { System.out.println("Single Room | Beds: 1 | Price: $" + price); }
+    public void displayDetails() { System.out.println("Single Room | Price: $" + price); }
     public String getName() { return "Single Room"; }
 }
 
 class DoubleRoom extends Room {
     public DoubleRoom(double price) { super(price); }
-    public void displayDetails() { System.out.println("Double Room | Beds: 2 | Price: $" + price); }
+    public void displayDetails() { System.out.println("Double Room | Price: $" + price); }
     public String getName() { return "Double Room"; }
 }
 
 class SuiteRoom extends Room {
     public SuiteRoom(double price) { super(price); }
-    public void displayDetails() { System.out.println("Suite Room | Beds: 3 | Price: $" + price); }
+    public void displayDetails() { System.out.println("Suite Room | Price: $" + price); }
     public String getName() { return "Suite Room"; }
 }
 
-// ================= UC3 → Inventory Management =================
+// ================= UC3 → Inventory =================
 class RoomInventory {
     private Map<String, Integer> inventory = new HashMap<>();
     public void registerRoom(String roomName, int count) { inventory.put(roomName, count); }
@@ -106,42 +99,36 @@ class RoomInventory {
         }
         return false;
     }
-    public void displayInventory() {
-        for (Map.Entry<String, Integer> entry : inventory.entrySet()) {
-            System.out.println(entry.getKey() + ": " + entry.getValue() + " rooms available");
-        }
-    }
 }
 
-// ================= UC5 → Booking Request =================
+// ================= Reservation =================
 class Reservation {
     private String guestName;
     private String roomType;
+    private String reservationId;
+
     public Reservation(String guestName, String roomType) {
         this.guestName = guestName;
         this.roomType = roomType;
+        this.reservationId = guestName.substring(0,2).toUpperCase() + System.nanoTime()%1000;
     }
+
     public String getGuestName() { return guestName; }
     public String getRoomType() { return roomType; }
-    public String toString() { return guestName + " requested " + roomType; }
+    public String getReservationId() { return reservationId; }
 }
 
+// ================= UC5 → Booking Queue =================
 class BookingRequestQueue {
     private Queue<Reservation> queue = new LinkedList<>();
     public void addRequest(Reservation r) { queue.offer(r); }
     public Reservation getNextRequest() { return queue.poll(); }
     public boolean hasNext() { return !queue.isEmpty(); }
-    public void displayQueue() {
-        for (Reservation r : queue) {
-            System.out.println(r);
-        }
-    }
 }
 
-// ================= UC6 → Reservation Confirmation & Allocation =================
+// ================= UC6 → Booking Service =================
 class BookingService {
     private RoomInventory inventory;
-    private Map<String, Set<String>> allocatedRooms = new HashMap<>();
     private int roomIdCounter = 1;
 
     public BookingService(RoomInventory inventory) {
@@ -149,14 +136,12 @@ class BookingService {
     }
 
     public void processReservation(Reservation r) {
-        String type = r.getRoomType();
-        if (inventory.allocateRoom(type)) {
-            allocatedRooms.putIfAbsent(type, new HashSet<>());
-            String roomId = type.substring(0, 2).toUpperCase() + roomIdCounter++;
-            allocatedRooms.get(type).add(roomId);
-            System.out.println(r.getGuestName() + " confirmed: " + type + " | Room ID: " + roomId);
+        if (inventory.allocateRoom(r.getRoomType())) {
+            String roomId = r.getRoomType().substring(0, 2).toUpperCase() + roomIdCounter++;
+            System.out.println(r.getGuestName() + " confirmed | Room ID: " + roomId +
+                    " | Reservation ID: " + r.getReservationId());
         } else {
-            System.out.println(r.getGuestName() + ": " + type + " unavailable");
+            System.out.println(r.getGuestName() + " booking failed");
         }
     }
 
@@ -164,5 +149,51 @@ class BookingService {
         while (queue.hasNext()) {
             processReservation(queue.getNextRequest());
         }
+    }
+}
+
+// ================= UC7 → Add-On Service =================
+class AddOnService {
+    private String name;
+    private double cost;
+
+    public AddOnService(String name, double cost) {
+        this.name = name;
+        this.cost = cost;
+    }
+
+    public double getCost() { return cost; }
+
+    public String toString() {
+        return name + " ($" + cost + ")";
+    }
+}
+
+// ================= UC7 → Service Manager =================
+class AddOnServiceManager {
+    private Map<String, List<AddOnService>> serviceMap = new HashMap<>();
+
+    public void addService(String reservationId, AddOnService service) {
+        serviceMap.putIfAbsent(reservationId, new ArrayList<>());
+        serviceMap.get(reservationId).add(service);
+    }
+
+    public void displayServices(String reservationId) {
+        List<AddOnService> services = serviceMap.get(reservationId);
+
+        if (services == null) {
+            System.out.println("No services for " + reservationId);
+            return;
+        }
+
+        double total = 0;
+        System.out.println("Services for " + reservationId + ":");
+
+        for (AddOnService s : services) {
+            System.out.println("- " + s);
+            total += s.getCost();
+        }
+
+        System.out.println("Total Add-On Cost: $" + total);
     }
 }
