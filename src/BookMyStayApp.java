@@ -1,4 +1,5 @@
 import java.util.*;
+import java.io.*;
 
 // ================= UC1 → Application Entry =================
 public class BookMyStayApp {
@@ -9,13 +10,27 @@ public class BookMyStayApp {
         System.out.println("Welcome to Book My Stay");
         System.out.println("=================================\n");
 
+        // ================= UC12 LOAD =================
+        PersistenceService ps = new PersistenceService();
+        Object[] data = ps.loadState();
+
+        RoomInventory inventory;
+        BookingHistory history;
+
+        if (data != null) {
+            inventory = (RoomInventory) data[0];
+            history = (BookingHistory) data[1];
+        } else {
+            inventory = new RoomInventory();
+            history = new BookingHistory();
+        }
+
         // ================= UC2 =================
         Room single = new SingleRoom(50.0);
         Room doubleR = new DoubleRoom(80.0);
         Room suite = new SuiteRoom(150.0);
 
         // ================= UC3 =================
-        RoomInventory inventory = new RoomInventory();
         inventory.registerRoom(single.getName(), 2);
         inventory.registerRoom(doubleR.getName(), 1);
         inventory.registerRoom(suite.getName(), 1);
@@ -26,9 +41,6 @@ public class BookMyStayApp {
         bookingQueue.addRequest(new Reservation("Alice", "Single Room"));
         bookingQueue.addRequest(new Reservation("Bob", "Double Room"));
         bookingQueue.addRequest(new Reservation("Charlie", "Single Room"));
-
-        // ================= UC8 =================
-        BookingHistory history = new BookingHistory();
 
         // ================= UC6 =================
         BookingService bookingService = new BookingService(inventory, history);
@@ -59,6 +71,9 @@ public class BookMyStayApp {
         // ================= UC8 =================
         history.displayHistory();
 
+        // ================= UC12 SAVE =================
+        ps.saveState(inventory, history);
+
         System.out.println("\nApplication execution completed.");
     }
 }
@@ -86,7 +101,7 @@ class SuiteRoom extends Room {
 }
 
 // ================= UC3 → Inventory =================
-class RoomInventory {
+class RoomInventory implements Serializable {
     private Map<String, Integer> inventory = new HashMap<>();
 
     public synchronized void registerRoom(String roomName, int count) {
@@ -108,7 +123,7 @@ class RoomInventory {
 }
 
 // ================= Reservation =================
-class Reservation {
+class Reservation implements Serializable {
     private String guestName;
     private String roomType;
     private String reservationId;
@@ -137,7 +152,7 @@ class BookingRequestQueue {
 }
 
 // ================= UC8 → History =================
-class BookingHistory {
+class BookingHistory implements Serializable {
     private List<Reservation> history = new ArrayList<>();
 
     public synchronized void addReservation(Reservation r) {
@@ -256,5 +271,43 @@ class CancellationService {
         history.removeReservation(reservationId);
 
         System.out.println("Cancelled successfully: " + reservationId);
+    }
+}
+
+// ================= UC12 → Persistence =================
+class PersistenceService {
+
+    private static final String FILE_NAME = "system_state.ser";
+
+    public void saveState(RoomInventory inventory, BookingHistory history) {
+
+        try (ObjectOutputStream out = new ObjectOutputStream(new FileOutputStream(FILE_NAME))) {
+
+            out.writeObject(inventory);
+            out.writeObject(history);
+
+            System.out.println("\nSystem state saved successfully.");
+
+        } catch (Exception e) {
+            System.out.println("\nError saving data.");
+        }
+    }
+
+    public Object[] loadState() {
+
+        try (ObjectInputStream in = new ObjectInputStream(new FileInputStream(FILE_NAME))) {
+
+            RoomInventory inventory = (RoomInventory) in.readObject();
+            BookingHistory history = (BookingHistory) in.readObject();
+
+            System.out.println("System state loaded successfully.\n");
+
+            return new Object[]{inventory, history};
+
+        } catch (Exception e) {
+
+            System.out.println("No previous data found. Starting fresh.\n");
+            return null;
+        }
     }
 }
